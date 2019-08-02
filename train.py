@@ -22,7 +22,8 @@ from core.dataset import Dataset
 from core.yolov3 import YOLOV3
 from core.config import cfg
 
-
+####### 此版本相对原版增加了载入预训练模型 ########
+####### 此版本相对原版增加了25e保存模型 ########
 class YoloTrain(object):
     def __init__(self):
         self.anchor_per_scale    = cfg.YOLO.ANCHOR_PER_SCALE
@@ -40,6 +41,8 @@ class YoloTrain(object):
         self.testset             = Dataset('test')
         self.steps_per_period    = len(self.trainset)
         self.sess                = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
+        self.weight_file         = cfg.YOLO.ORIGINAL_WEIGHT
+
 
         with tf.name_scope('define_input'):
             self.input_data   = tf.placeholder(dtype=tf.float32, name='input_data')
@@ -75,7 +78,11 @@ class YoloTrain(object):
             global_step_update = tf.assign_add(self.global_step, 1.0)
 
         with tf.name_scope("define_weight_decay"):
-            moving_ave = tf.train.ExponentialMovingAverage(self.moving_ave_decay).apply(tf.trainable_variables())
+            EMA = tf.train.ExponentialMovingAverage(self.moving_ave_decay)
+            moving_ave = EMA.apply(tf.trainable_variables())
+        
+        self.saver = tf.train.Saver(EMA.variables_to_restore())
+        
 
         with tf.name_scope("define_train_stage"):
             trainable_var_list = tf.trainable_variables()
@@ -101,18 +108,22 @@ class YoloTrain(object):
             if os.path.exists(logdir): shutil.rmtree(logdir)
             os.mkdir(logdir)
             self.write_op = tf.summary.merge_all()
-            self.summary_writer  = tf.summary.FileWriter(logdir, graph=self.sess.graph)
+            self.summary_writer  = tf.summary.FileWriter(logdir+'train/', graph=self.sess.graph)
+            self.test_summary_writer  = tf.summary.FileWriter(logdir+'test/')
 
 
     def train(self):
         self.sess.run(tf.global_variables_initializer())
+        if self.weight_file != None:
+            self.saver.restore(self.sess, self.weight_file)
+            print('~~~~~~~~~~~~~~~~loading',self.weight_file)
         for epoch in range(1, 1+self.train_epochs):
             train_op = self.train_op_with_all_variables
 
             pbar = tqdm(self.trainset)
             train_epoch_loss, test_epoch_loss = [], []
 
-            for train_data in pbar:
+            for s,train_data in enumerate(pbar):
                 _, summary, train_step_loss, global_step_val = self.sess.run(
                     [train_op, self.write_op, self.loss, self.global_step],feed_dict={
                                                 self.input_data:   train_data[0],
@@ -128,20 +139,23 @@ class YoloTrain(object):
                 train_epoch_loss.append(train_step_loss)
                 self.summary_writer.add_summary(summary, global_step_val)
                 pbar.set_description("train loss: %.2f" %train_step_loss)
+                if s % 1000 == 0:
 
-            for test_data in self.testset:
-                test_step_loss = self.sess.run( self.loss, feed_dict={
-                                                self.input_data:   test_data[0],
-                                                self.label_sbbox:  test_data[1],
-                                                self.label_mbbox:  test_data[2],
-                                                self.label_lbbox:  test_data[3],
-                                                self.true_sbboxes: test_data[4],
-                                                self.true_mbboxes: test_data[5],
-                                                self.true_lbboxes: test_data[6],
-                                                self.trainable:    False,
-                })
-
-                test_epoch_loss.append(test_step_loss)
+                    for test_data in self.testset:
+                        summary, test_step_loss, global_step_val = self.sess.run( 
+                                [self.write_op, self.loss, self.global_step], feed_dict={
+                                                        self.input_data:   test_data[0],
+                                                        self.label_sbbox:  test_data[1],
+                                                        self.label_mbbox:  test_data[2],
+                                                        self.label_lbbox:  test_data[3],
+                                                        self.true_sbboxes: test_data[4],
+                                                        self.true_mbboxes: test_data[5],
+                                                        self.true_lbboxes: test_data[6],
+                                                        self.trainable:    False,
+                        })
+        
+                        test_epoch_loss.append(test_step_loss)
+                        self.test_summary_writer.add_summary(summary, global_step_val)
 
             train_epoch_loss, test_epoch_loss = np.mean(train_epoch_loss), np.mean(test_epoch_loss)
             ckpt_file = "./checkpoint/yolov3_test_loss=%.4f.ckpt" % test_epoch_loss
@@ -149,6 +163,9 @@ class YoloTrain(object):
             print("=> Epoch: %2d Time: %s Train loss: %.2f Test loss: %.2f Saving %s ..."
                             %(epoch, log_time, train_epoch_loss, test_epoch_loss, ckpt_file))
             self.saver.save(self.sess, ckpt_file, global_step=epoch)
+            if epoch%25 == 0:
+                ckpt_file1 = "./checkpoint/enhanc_focal_scratch200/yolov3_test_loss=%.4f.ckpt" % test_epoch_loss
+                self.saver.save(self.sess, ckpt_file1, global_step=epoch)
 
 
 

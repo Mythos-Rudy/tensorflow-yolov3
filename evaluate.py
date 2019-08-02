@@ -19,6 +19,7 @@ import tensorflow as tf
 import core.utils as utils
 from core.config import cfg
 from core.yolov3 import YOLOV3
+import time
 
 class YoloTest(object):
     def __init__(self):
@@ -90,7 +91,7 @@ class YoloTest(object):
                 image_path = annotation[0]
                 image_name = image_path.split('/')[-1]
                 image = cv2.imread(image_path)
-                bbox_data_gt = np.array([list(map(int, box.split(','))) for box in annotation[1:]])
+                bbox_data_gt = np.array([list(map(float, box.split(','))) for box in annotation[1:]]).astype(np.int)
 
                 if len(bbox_data_gt) == 0:
                     bboxes_gt=[]
@@ -110,6 +111,7 @@ class YoloTest(object):
                         print('\t' + str(bbox_mess).strip())
                 print('=> predict result of %s:' % image_name)
                 predict_result_path = os.path.join(predicted_dir_path, str(num) + '.txt')
+                cv2.imwrite('./mAP/images/'+str(num)+'.jpg', image)
                 bboxes_pr = self.predict(image)
 
                 if self.write_image:
@@ -159,7 +161,10 @@ class YoloTest(object):
                 print('\t' + str(bbox_mess).strip())
 
 
-if __name__ == '__main__': YoloTest().evaluate()
+if __name__ == '__main__': 
+    start_time = time.time()
+    YoloTest().evaluate()
+    print(start_time - time.time())
 
 
 

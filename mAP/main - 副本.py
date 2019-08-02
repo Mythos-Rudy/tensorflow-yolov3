@@ -5,7 +5,7 @@ import shutil
 import operator
 import sys
 import argparse
-11111111111111111111111111
+
 MINOVERLAP = 0.5 # default value (defined in the PASCAL VOC2012 challenge)
 
 parser = argparse.ArgumentParser()
@@ -259,8 +259,8 @@ def draw_plot_func(dictionary, n_classes, window_title, plot_title, x_label, out
   # save the plot
   fig.savefig(output_path)
   # show image
-  #if to_show:
-    #plt.show()
+  if to_show:
+    plt.show()
   # close the plot
   plt.close()
 
@@ -436,28 +436,7 @@ with open(results_files_path + "/results.txt", 'w') as results_file:
     fp = [0] * nd
     for idx, prediction in enumerate(predictions_data):
       file_id = prediction["file_id"]
-      if show_animation:
-        # find ground truth image
-        ground_truth_img = glob.glob1(img_path, file_id + ".*")
-        #tifCounter = len(glob.glob1(myPath,"*.tif"))
-        if len(ground_truth_img) == 0:
-          error("Error. Image not found with id: " + file_id)
-        elif len(ground_truth_img) > 1:
-          error("Error. Multiple image with id: " + file_id)
-        else: # found image
-          #print(img_path + "/" + ground_truth_img[0])
-          # Load image
-          img = cv2.imread(img_path + "/" + ground_truth_img[0])
-          # load image with draws of multiple detections
-          img_cumulative_path = results_files_path + "/images/" + ground_truth_img[0]
-          if os.path.isfile(img_cumulative_path):
-            img_cumulative = cv2.imread(img_cumulative_path)
-          else:
-            img_cumulative = img.copy()
-          # Add bottom border to image
-          bottom_border = 60
-          BLACK = [0, 0, 0]
-          img = cv2.copyMakeBorder(img, 0, bottom_border, 0, 0, cv2.BORDER_CONSTANT, value=BLACK)
+
       # assign prediction to ground truth object if any
       #   open ground-truth with that file_id
       gt_file = tmp_files_path + "/" + file_id + "_ground_truth.json"
@@ -484,7 +463,7 @@ with open(results_files_path + "/results.txt", 'w') as results_file:
 
       # assign prediction as true positive/don't care/false positive
       if show_animation:
-          status = "NO MATCH FOUND!" # status is only used in the animation
+        status = "NO MATCH FOUND!" # status is only used in the animation
       # set minimum overlap
       min_overlap = MINOVERLAP
       if specific_iou_flagged:
@@ -514,60 +493,6 @@ with open(results_files_path + "/results.txt", 'w') as results_file:
         if ovmax > 0:
           status = "INSUFFICIENT OVERLAP"
 
-      """
-       Draw image to show animation
-      """
-      if show_animation:
-        height, widht = img.shape[:2]
-        # colors (OpenCV works with BGR)
-        white = (255,255,255)
-        light_blue = (255,200,100)
-        green = (0,255,0)
-        light_red = (30,30,255)
-        # 1st line
-        margin = 10
-        v_pos = int(height - margin - (bottom_border / 2))
-        text = "Image: " + ground_truth_img[0] + " "
-        img, line_width = draw_text_in_image(img, text, (margin, v_pos), white, 0)
-        text = "Class [" + str(class_index) + "/" + str(n_classes) + "]: " + class_name + " "
-        img, line_width = draw_text_in_image(img, text, (margin + line_width, v_pos), light_blue, line_width)
-        if ovmax != -1:
-          color = light_red
-          if status == "INSUFFICIENT OVERLAP":
-            text = "IoU: {0:.2f}% ".format(ovmax*100) + "< {0:.2f}% ".format(min_overlap*100)
-          else:
-            text = "IoU: {0:.2f}% ".format(ovmax*100) + ">= {0:.2f}% ".format(min_overlap*100)
-            color = green
-          img, _ = draw_text_in_image(img, text, (margin + line_width, v_pos), color, line_width)
-        # 2nd line
-        v_pos += int(bottom_border / 2)
-        rank_pos = str(idx+1) # rank position (idx starts at 0)
-        text = "Prediction #rank: " + rank_pos + " confidence: {0:.2f}% ".format(float(prediction["confidence"])*100)
-        img, line_width = draw_text_in_image(img, text, (margin, v_pos), white, 0)
-        color = light_red
-        if status == "MATCH!":
-          color = green
-        text = "Result: " + status + " "
-        img, line_width = draw_text_in_image(img, text, (margin + line_width, v_pos), color, line_width)
-
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        if ovmax > 0: # if there is intersections between the bounding-boxes
-          bbgt = [ int(x) for x in gt_match["bbox"].split() ]
-          cv2.rectangle(img,(bbgt[0],bbgt[1]),(bbgt[2],bbgt[3]),light_blue,2)
-          cv2.rectangle(img_cumulative,(bbgt[0],bbgt[1]),(bbgt[2],bbgt[3]),light_blue,2)
-          cv2.putText(img_cumulative, class_name, (bbgt[0],bbgt[1] - 5), font, 0.6, light_blue, 1, cv2.LINE_AA)
-        bb = [int(i) for i in bb]
-        cv2.rectangle(img,(bb[0],bb[1]),(bb[2],bb[3]),color,2)
-        cv2.rectangle(img_cumulative,(bb[0],bb[1]),(bb[2],bb[3]),color,2)
-        cv2.putText(img_cumulative, class_name, (bb[0],bb[1] - 5), font, 0.6, color, 1, cv2.LINE_AA)
-        # show image
-        #cv2.imshow("Animation", img)
-        #cv2.waitKey(20) # show for 20 ms
-        # save image to results
-        output_img_path = results_files_path + "/images/single_predictions/" + class_name + "_prediction" + str(idx) + ".jpg"
-        cv2.imwrite(output_img_path, img)
-        # save the image with all the objects drawn to it
-        cv2.imwrite(img_cumulative_path, img_cumulative)
 
     #print(tp)
     # compute precision/recall
