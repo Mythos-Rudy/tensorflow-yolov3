@@ -24,6 +24,7 @@ from core.config import cfg
 
 ####### 此版本相对原版增加了载入预训练模型 ########
 ####### 此版本相对原版增加了25e保存模型 ########
+####### 此版本相对原版增加了variables L2 loss ########
 class YoloTrain(object):
     def __init__(self):
         self.anchor_per_scale    = cfg.YOLO.ANCHOR_PER_SCALE
@@ -42,6 +43,7 @@ class YoloTrain(object):
         self.steps_per_period    = len(self.trainset)
         self.sess                = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
         self.weight_file         = cfg.YOLO.ORIGINAL_WEIGHT
+        self.weight_decay        = cfg.YOLO.WEIGHT_DECAY
 
 
         with tf.name_scope('define_input'):
@@ -60,7 +62,9 @@ class YoloTrain(object):
             self.giou_loss, self.conf_loss, self.prob_loss = self.model.compute_loss(
                                                     self.label_sbbox,  self.label_mbbox,  self.label_lbbox,
                                                     self.true_sbboxes, self.true_mbboxes, self.true_lbboxes)
-            self.loss = self.giou_loss + self.conf_loss + self.prob_loss
+            self.loss = self.giou_loss + self.conf_loss + self.prob_loss + self.weight_decay * tf.add_n(
+                [tf.nn.l2_loss(var) for var in tf.trainable_variables()]
+            )
 
         with tf.name_scope('learn_rate'):
             self.global_step = tf.Variable(1.0, dtype=tf.float64, trainable=False, name='global_step')
