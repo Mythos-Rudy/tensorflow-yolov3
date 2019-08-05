@@ -5,7 +5,7 @@ import shutil
 import operator
 import sys
 import argparse
-11111111111111111111111111
+
 MINOVERLAP = 0.5 # default value (defined in the PASCAL VOC2012 challenge)
 
 parser = argparse.ArgumentParser()

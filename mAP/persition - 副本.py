@@ -316,19 +316,28 @@ def comput_ap(class_index, class_name, n_classes, tmp_files_path, box_summary, g
         gt_match = -1
         match_box = -1
         bb = [ float(x) for x in prediction["bbox"].split() ]
+        class_match = False                                                     #用于判断是否分类类别错误
         for obj in ground_truth_data:
-            if obj["class_name"] == class_name:
-                bbgt = [ float(x) for x in obj["bbox"].split() ]
-                bi = [max(bb[0],bbgt[0]), max(bb[1],bbgt[1]), min(bb[2],bbgt[2]), min(bb[3],bbgt[3])]
-                iw = bi[2] - bi[0] + 1
-                ih = bi[3] - bi[1] + 1
-                if iw > 0 and ih > 0:
-                    ua = (bb[2]-bb[0]+1)*(bb[3]-bb[1]+1)+(bbgt[2]-bbgt[0]+1)*(bbgt[3]-bbgt[1]+1)-iw*ih
-                    ov = iw * ih / ua
-                    if ov > ovmax:
+            #if obj["class_name"] == class_name:                                #因为类别错误也算正确，移到后面
+            bbgt = [ float(x) for x in obj["bbox"].split() ]
+            bi = [max(bb[0],bbgt[0]), max(bb[1],bbgt[1]), min(bb[2],bbgt[2]), min(bb[3],bbgt[3])]
+            iw = bi[2] - bi[0] + 1
+            ih = bi[3] - bi[1] + 1
+            if iw > 0 and ih > 0:
+                ua = (bb[2]-bb[0]+1)*(bb[3]-bb[1]+1)+(bbgt[2]-bbgt[0]+1)*(bbgt[3]-bbgt[1]+1)-iw*ih
+                ov = iw * ih / ua
+                if ov > ovmax:
+                    if obj["class_name"] == class_name:
+                        class_match = True
                         ovmax = ov
                         gt_match = obj
                         match_box = bbgt[:]
+                    else:
+                        if class_match == False:
+                            ovmax = ov
+                            gt_match = obj
+                            match_box = bbgt[:]
+                        
         
         status = "No box Match!"
         if ovmax < 0:
@@ -346,21 +355,17 @@ def comput_ap(class_index, class_name, n_classes, tmp_files_path, box_summary, g
                 #count_iou_positive += 1                                            #只要IOU大于阈值就算iou_TP + 1
                 if not bool(gt_match["used"]):                                     #如果GT第一次被匹配
                     if not bool(gt_match["easy_mode_used"]):                   #如果easy条件第一次匹配，则recall计算时为正，否则为负，tfp+1
-                        gt_match["easy_mode_used"]  = True
-                        ttp[idx] = 1
+                        if obj["class_name"] == class_name:
+                            gt_match["easy_mode_used"]  = True
+                            ttp[idx] = 1
                     else:
                         tfp[idx] = 1
                     tp[idx] = 1
-                    gt_match["used"] = True
+                    if obj["class_name"] == class_name:
+                        gt_match["used"] = True
                     count_true_positive += 1
                     status = "Matched!"
                 else:                                                              #如果不是第一次被匹配但是IOU符合
-                    if not bool(gt_match["used"]):                                     #如果GT第一次被匹配
-                        if not bool(gt_match["easy_mode_used"]):                   #如果easy条件第一次匹配，则recall计算时为正，否则为负，tfp+1
-                            gt_match["easy_mode_used"]  = True
-                            ttp[idx] = 1
-                        else:
-                            tfp[idx] = 1
                     dtp[idx] = 1
                     fp[idx] = 1
                     count_iou_positive += 1
@@ -370,8 +375,9 @@ def comput_ap(class_index, class_name, n_classes, tmp_files_path, box_summary, g
                 if ovmax > 0:
                     if match_box[2]-match_box[0] > 0.6 * args.width and (bb[2]-bb[0]) / (match_box[2]-match_box[0]) > 0.6:  #宽框只要宽度够也算ok
                         if not bool(gt_match["easy_mode_used"]):                   #如果easy条件第一次匹配，则recall计算时为正，否则为负，tfp+1
-                            gt_match["easy_mode_used"]  = True
-                            ttp[idx] = 1
+                            if obj["class_name"] == class_name:
+                                gt_match["easy_mode_used"]  = True
+                                ttp[idx] = 1
                         else:
                             tfp[idx] = 1                        
                         ktp[idx] = 1
@@ -379,8 +385,9 @@ def comput_ap(class_index, class_name, n_classes, tmp_files_path, box_summary, g
                         status = "Wide Matched!"
                     elif match_box[3]-match_box[1] > 0.6 * args.height and (bb[3]-bb[1]) / (match_box[3]-match_box[1]) > 0.6:
                         if not bool(gt_match["easy_mode_used"]):                   #如果easy条件第一次匹配，则recall计算时为正，否则为负，tfp+1
-                            gt_match["easy_mode_used"]  = True
-                            ttp[idx] = 1
+                            if obj["class_name"] == class_name:
+                                gt_match["easy_mode_used"]  = True
+                                ttp[idx] = 1
                         else:
                             tfp[idx] = 1
                         ktp[idx] = 1
@@ -388,8 +395,9 @@ def comput_ap(class_index, class_name, n_classes, tmp_files_path, box_summary, g
                         status = "Wide Matched!"
                     elif iw * ih / ((bb[2]-bb[0]+1)*(bb[3]-bb[1]+1)) > min_overlap or iw * ih /((match_box[2]-match_box[0]+1)*(match_box[3]-match_box[1]+1)) > min_overlap:
                         if not bool(gt_match["easy_mode_used"]):                   #如果easy条件第一次匹配，则recall计算时为正，否则为负，tfp+1
-                            gt_match["easy_mode_used"]  = True
-                            ttp[idx] = 1
+                            if obj["class_name"] == class_name:
+                                gt_match["easy_mode_used"]  = True
+                                ttp[idx] = 1
                         else:
                             tfp[idx] = 1
                         ntp[idx] = 1
@@ -449,6 +457,8 @@ def comput_ap(class_index, class_name, n_classes, tmp_files_path, box_summary, g
             color = red
             if status != "IOU Not Enough!" and status != "No box Match!":
                 color = green
+            if class_match == False:                                           #如果pred和gt class不是匹配的，在图里表示出来
+                status += "But class didn't matched !"
             text = "Result: " + status + " "
             img, line_width = draw_text_in_image(img, text, (margin + line_width, v_pos), color, line_width)
             font = cv2.FONT_HERSHEY_SIMPLEX
@@ -827,8 +837,9 @@ def main():
     with open(results_files_path + "/results.txt", 'a') as results_file:
       results_file.write("\n# Number and Score of ground-truth objects per class\n")
       for class_name in sorted(gt_counter_per_class):
-        results_file.write(class_name+": "+str(gt_counter_per_class[class_name])+'matched:%d unmatched:%d'%(matched_numb[class_name],
-                           unmatched_num[class_name])+'score:'+str(scores[class_name]) + "\n")
+        results_file.write(class_name+": "+str(gt_counter_per_class[class_name])+'  matched:%d  unmatched:%d'%(matched_numb[class_name],
+                           unmatched_num[class_name])+'  score:'+str(scores[class_name]) + "\n")
+        print(class_name+' score = %.2f'%scores[class_name])
 
     """
      Plot the summary of score of each class

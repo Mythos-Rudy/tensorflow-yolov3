@@ -80,6 +80,7 @@ class Dataset(object):
                     if index >= self.num_samples: index -= self.num_samples
                     annotation = self.annotations[index]
                     image, bboxes = self.parse_annotation(annotation)
+                    bboxes = bboxes.astype(np.int)
                     label_sbbox, label_mbbox, label_lbbox, sbboxes, mbboxes, lbboxes = self.preprocess_true_boxes(bboxes)
 
                     batch_image[num, :, :, :] = image
@@ -157,7 +158,8 @@ class Dataset(object):
         line = annotation.split()
         image_path = line[0]
         image = np.array(cv2.imread(image_path))
-        bboxes = np.array([list(map(int, box.split(','))) for box in line[1:]])
+        bboxes = np.array([list(map(float, box.split(','))) for box in line[1:]])
+        bboxes.astype(np.int)
 
         if self.data_aug:
             image, bboxes = self.random_horizontal_flip(np.copy(image), np.copy(bboxes))

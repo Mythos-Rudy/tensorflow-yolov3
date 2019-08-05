@@ -58,6 +58,7 @@ class YoloTest(object):
 
         image_data = utils.image_preporcess(image, [self.input_size, self.input_size])
         image_data = image_data[np.newaxis, ...]
+        start_time = time.time()
 
         pred_sbbox, pred_mbbox, pred_lbbox = self.sess.run(
             [self.pred_sbbox, self.pred_mbbox, self.pred_lbbox],
@@ -66,6 +67,7 @@ class YoloTest(object):
                 self.trainable: False
             }
         )
+        time_cost = time.time() - start_time
 
         pred_bbox = np.concatenate([np.reshape(pred_sbbox, (-1, 5 + self.num_classes)),
                                     np.reshape(pred_mbbox, (-1, 5 + self.num_classes)),
@@ -73,7 +75,7 @@ class YoloTest(object):
         bboxes = utils.postprocess_boxes(pred_bbox, (org_h, org_w), self.input_size, self.score_threshold)
         bboxes = utils.nms(bboxes, self.iou_threshold)
 
-        return bboxes
+        return bboxes,time_cost
 
     def evaluate(self):
         predicted_dir_path = './mAP/predicted'
@@ -86,6 +88,7 @@ class YoloTest(object):
         os.mkdir(self.write_image_path)
 
         with open(self.annotation_path, 'r') as annotation_file:
+            run_time_cost = 0
             for num, line in enumerate(annotation_file):
                 annotation = line.strip().split()
                 image_path = annotation[0]
@@ -112,7 +115,8 @@ class YoloTest(object):
                 print('=> predict result of %s:' % image_name)
                 predict_result_path = os.path.join(predicted_dir_path, str(num) + '.txt')
                 cv2.imwrite('./mAP/images/'+str(num)+'.jpg', image)
-                bboxes_pr = self.predict(image)
+                bboxes_pr, time_cost = self.predict(image)
+                run_time_cost += time_cost
 
                 if self.write_image:
                     image = utils.draw_bbox(image, bboxes_pr, show_label=self.show_label)
@@ -129,6 +133,7 @@ class YoloTest(object):
                         bbox_mess = ' '.join([class_name, score, xmin, ymin, xmax, ymax]) + '\n'
                         f.write(bbox_mess)
                         print('\t' + str(bbox_mess).strip())
+        return run_time_cost
 
     def voc_2012_test(self, voc2012_test_path):
 
@@ -162,9 +167,9 @@ class YoloTest(object):
 
 
 if __name__ == '__main__': 
-    start_time = time.time()
-    YoloTest().evaluate()
-    print(start_time - time.time())
+    run_time_cost = YoloTest().evaluate()
+    print('total: ',run_time_cost,'s')
+    print('fps: ',run_time_cost/179)
 
 
 

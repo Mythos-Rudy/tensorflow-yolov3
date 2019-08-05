@@ -27,7 +27,6 @@ parser.add_argument('--set-class-iou', nargs='+', type=str, help="set IoU for a 
 parser.add_argument('--width', default=1280, type=int, help="image width.")
 parser.add_argument('--height', default=800, type=int, help="image height.")
 parser.add_argument('--easing_mode', default=True, type=bool, help="easing_mode or voc_2012 mode.")
-parser.add_argument('--easing_mode', default=True, type=bool, help="easing_mode or voc_2012 mode.")
 parser.add_argument('--max_IOU_thd', default=0.7, type=float, help="IOU compute")
 parser.add_argument('--min_IOU_thd', default=0.3, type=float, help="IOU compute")
 args = parser.parse_args()

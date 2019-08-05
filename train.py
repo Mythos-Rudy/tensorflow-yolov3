@@ -43,7 +43,7 @@ class YoloTrain(object):
         self.testset             = Dataset('test')
         self.steps_per_period    = len(self.trainset)
         self.sess                = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
-        self.weight_file         = cfg.YOLO.ORIGINAL_WEIGHT
+        self.initial_weight      = cfg.TRAIN.INITIAL_WEIGHT
         self.weight_decay        = cfg.YOLO.WEIGHT_DECAY
 
 
@@ -136,8 +136,8 @@ class YoloTrain(object):
     def train(self):
         self.sess.run(tf.global_variables_initializer())
         try:
-            print('=> Restoring weights from: %s ... ' % self.weight_file)
-            self.loader.restore(self.sess, self.weight_file)
+            print('=> Restoring weights from: %s ... ' % self.initial_weight)
+            self.loader.restore(self.sess, self.initial_weight)
         except:
             print('=> %s does not exist !!!' % self.initial_weight)
             print('=> Now it starts to train YOLOV3 from scratch ...')
@@ -167,7 +167,8 @@ class YoloTrain(object):
 
                 train_epoch_loss.append(train_step_loss)
                 self.summary_writer.add_summary(summary, global_step_val)
-                pbar.set_description("train loss: %.2f" %train_step_loss)
+                if s % 10 == 0:
+                    pbar.set_description("train loss: %.2f" %train_step_loss)
                 if s % 1000 == 0:
 
                     for test_data in self.testset:
@@ -185,6 +186,7 @@ class YoloTrain(object):
         
                         test_epoch_loss.append(test_step_loss)
                         self.test_summary_writer.add_summary(summary, global_step_val)
+                        pbar.set_description("train loss: %.2f Test loss: %.2f" %(train_step_loss,test_step_loss))
 
             train_epoch_loss, test_epoch_loss = np.mean(train_epoch_loss), np.mean(test_epoch_loss)
             ckpt_file = "./checkpoint/yolov3_test_loss=%.4f.ckpt" % test_epoch_loss

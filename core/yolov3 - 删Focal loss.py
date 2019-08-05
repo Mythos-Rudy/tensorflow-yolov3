@@ -11,8 +11,7 @@
 #
 #================================================================
 
-###########此版本使用了 增强Focal Loss  为 3 倍#############
-###########此版本增加了根据前景背景按比例增大 前景 conf loss（因为conf太低）#############
+###########此版本根据原版删除了 Focal Loss#############
 
 import numpy as np
 import tensorflow as tf
@@ -131,7 +130,7 @@ class YOLOV3(object):
 
         return tf.concat([pred_xywh, pred_conf, pred_prob], axis=-1)
 
-    def focal(self, target, actual, alpha=1, gamma=3):
+    def focal(self, target, actual, alpha=1, gamma=0):
         focal_loss = alpha * tf.pow(tf.abs(target - actual), gamma)
         return focal_loss
 
@@ -217,9 +216,8 @@ class YOLOV3(object):
 
         conf_focal = self.focal(respond_bbox, pred_conf)
 
-        conf_loss = conf_focal * (
-                respond_bbox * tf.nn.sigmoid_cross_entropy_with_logits(labels=respond_bbox, logits=conv_raw_conf) * 
-                (5)
+        conf_loss = 1 * (
+                respond_bbox * tf.nn.sigmoid_cross_entropy_with_logits(labels=respond_bbox, logits=conv_raw_conf)
                 +
                 respond_bgd * tf.nn.sigmoid_cross_entropy_with_logits(labels=respond_bbox, logits=conv_raw_conf)
         )
@@ -231,6 +229,7 @@ class YOLOV3(object):
         prob_loss = tf.reduce_mean(tf.reduce_sum(prob_loss, axis=[1,2,3,4]))
 
         return giou_loss, conf_loss, prob_loss
+
 
 
     def compute_loss(self, label_sbbox, label_mbbox, label_lbbox, true_sbbox, true_mbbox, true_lbbox):
