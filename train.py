@@ -63,9 +63,10 @@ class YoloTrain(object):
             self.giou_loss, self.conf_loss, self.prob_loss = self.model.compute_loss(
                                                     self.label_sbbox,  self.label_mbbox,  self.label_lbbox,
                                                     self.true_sbboxes, self.true_mbboxes, self.true_lbboxes)
-            self.loss = self.giou_loss + self.conf_loss + self.prob_loss + self.weight_decay * tf.add_n(
-                [tf.nn.l2_loss(var) for var in tf.trainable_variables()]
-            )
+            self.loss = self.giou_loss + self.conf_loss + self.prob_loss
+#            self.loss = self.giou_loss + self.conf_loss + self.prob_loss + self.weight_decay * tf.add_n(
+#                [tf.nn.l2_loss(var) for var in tf.trainable_variables()]
+#            )
 
         with tf.name_scope('learn_rate'):
             self.global_step = tf.Variable(1.0, dtype=tf.float64, trainable=False, name='global_step')
@@ -106,7 +107,10 @@ class YoloTrain(object):
 
         with tf.name_scope("define_second_stage_train"):
             second_stage_trainable_var_list = tf.trainable_variables()
-            second_stage_optimizer = tf.train.AdamOptimizer(self.learn_rate).minimize(self.loss,
+#            second_stage_optimizer = tf.train.AdamOptimizer(self.learn_rate).minimize(self.loss,
+#                                                      var_list=second_stage_trainable_var_list)
+            AdamWOptimizer = tf.contrib.opt.extend_with_decoupled_weight_decay(tf.train.AdamOptimizer)
+            second_stage_optimizer = AdamWOptimizer(weight_decay=self.weight_decay/100, learning_rate=self.learn_rate).minimize(self.loss,
                                                       var_list=second_stage_trainable_var_list)
 
             with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):

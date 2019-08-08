@@ -133,7 +133,7 @@ class YoloTest(object):
                     classes_gt=[]
                 else:
                     bboxes_gt, classes_gt = bbox_data_gt[:, :4], bbox_data_gt[:, 4]
-                ground_truth_path = os.path.join(ground_truth_dir_path, str(num) + '.txt')
+                ground_truth_path = os.path.join(ground_truth_dir_path, str(num)+'-'+image_name + '.txt')
 
                 print('=> ground truth of %s:' % image_name)
                 num_bbox_gt = len(bboxes_gt)
@@ -147,8 +147,8 @@ class YoloTest(object):
                         f.write(bbox_mess)
                         print('\t' + str(bbox_mess).strip())
                 print('=> predict result of %s:' % image_name)
-                predict_result_path = os.path.join(predicted_dir_path, str(num) + '.txt')
-                cv2.imwrite(save_img_path+str(num)+'.jpg', image)
+                predict_result_path = os.path.join(predicted_dir_path, str(num)+'-'+image_name + '.txt')
+                cv2.imwrite(save_img_path+str(num)+'-'+image_name, image)
                 
                 image_np = cv2.cvtColor(np.asarray(image), cv2.COLOR_BGR2RGB)
                 image_np_expanded = np.expand_dims(image_np, axis=0)

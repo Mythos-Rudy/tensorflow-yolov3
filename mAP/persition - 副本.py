@@ -292,7 +292,7 @@ def comput_ap(class_index, class_name, n_classes, tmp_files_path, box_summary, g
             
         results_files_path = "results"
         if show_animation:
-            ground_truth_img = glob.glob1(img_path, file_id + ".*")
+            ground_truth_img = glob.glob1(img_path, file_id)
             if len(ground_truth_img) == 0:
                 error("Error. Image not found with id: " + file_id)
             elif len(ground_truth_img) > 1:
@@ -427,7 +427,9 @@ def comput_ap(class_index, class_name, n_classes, tmp_files_path, box_summary, g
             v_pos = int(height - margin - (bottom_border / 2))
             text = "Image: " + ground_truth_img[0] + " "
             img, line_width = draw_text_in_image(img, text, (margin, v_pos), white, 0)
-            text = "Class [" + str(class_index) + "/" + str(n_classes) + "]: " + class_name + " "
+            text = "Class [" + str(class_index) + "/" + str(n_classes) + "]: pred_class:" + class_name + " "
+            if ovmax > -1:
+                text += "gt_class:" + gt_match["class_name"] + ' '
             img, line_width = draw_text_in_image(img, text, (margin + line_width, v_pos), blue, line_width)
             image_color = red
             if ovmax != -1:
@@ -478,7 +480,7 @@ def comput_ap(class_index, class_name, n_classes, tmp_files_path, box_summary, g
             #cv2.imshow("Animation", img)
             #cv2.waitKey(20) # show for 20 ms
             # save image to results
-            output_img_path = results_files_path + "/images/single_predictions/" + class_name + "_prediction" + str(idx) + ".jpg"
+            output_img_path = results_files_path + "/images/single_predictions/" + class_name + "_" + str(idx) + ".jpg"
             cv2.imwrite(output_img_path, img)
             #错误图片单独取出来
             if class_match == False and ovmax > 0:
@@ -598,7 +600,7 @@ def score_prepare(class_name, tmp_files_path, show_animation = True):
             
         results_files_path = "results"
         if show_animation:
-            ground_truth_img = glob.glob1(img_path, file_id + ".*")
+            ground_truth_img = glob.glob1(img_path, file_id)
             if len(ground_truth_img) == 0:
                 error("Error. Image not found with id: " + file_id)
             elif len(ground_truth_img) > 1:
@@ -710,8 +712,8 @@ def score_comput(tmp_files_path,box_summary, gt_classes, gt_counter_per_class):
                 else:
                     unmatched_num[label_name] = 1
             if obj['score_used'] != True:                                     #若没有pred框匹配，保存保存该图片和框
-                file_id = tmp_file.split('_')[1][6:]
-                image_path = './images/' + file_id + '.jpg'
+                file_id = tmp_file.split('tmp_files')[-1][1:].split('_ground')[0]
+                image_path = './images/' + file_id
                 no_pred_img = cv2.imread(image_path).copy()
                 bbgt = [ int(x) for x in obj["bbox"].split() ]
                 blue = [255,30,30]
