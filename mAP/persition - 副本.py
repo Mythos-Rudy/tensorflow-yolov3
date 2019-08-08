@@ -340,13 +340,14 @@ def comput_ap(class_index, class_name, n_classes, tmp_files_path, box_summary, g
                         
         
         status = "No box Match!"
-        if ovmax < 0:
+        if ovmax <= 0:
             ffp[idx] = 1
             fp[idx] = 1
             tfp[idx] = 1
         
         else:
-            min_overlap = IOU_threshold(match_box,box_summary)                          #计算IOU阈值（按照框的大小）
+            min_overlap = 0.2 if ((match_box[2]-match_box[0]) <= 64 and (match_box[3]-match_box[1]) <= 64) else 0.5
+    #        min_overlap = IOU_threshold(match_box,box_summary)                          #计算IOU阈值（按照框的大小）
     #        if specific_iou_flagged:                                              #可以根据不同label设置不同的IOU阈值
     #            if class_name in specific_iou_classes:
     #                index = specific_iou_classes.index(class_name)
@@ -355,13 +356,13 @@ def comput_ap(class_index, class_name, n_classes, tmp_files_path, box_summary, g
                 #count_iou_positive += 1                                            #只要IOU大于阈值就算iou_TP + 1
                 if not bool(gt_match["used"]):                                     #如果GT第一次被匹配
                     if not bool(gt_match["easy_mode_used"]):                   #如果easy条件第一次匹配，则recall计算时为正，否则为负，tfp+1
-                        if obj["class_name"] == class_name:
+                        if gt_match["class_name"] == class_name:
                             gt_match["easy_mode_used"]  = True
                             ttp[idx] = 1
                     else:
                         tfp[idx] = 1
                     tp[idx] = 1
-                    if obj["class_name"] == class_name:
+                    if gt_match["class_name"] == class_name:
                         gt_match["used"] = True
                     count_true_positive += 1
                     status = "Matched!"
@@ -375,7 +376,7 @@ def comput_ap(class_index, class_name, n_classes, tmp_files_path, box_summary, g
                 if ovmax > 0:
                     if match_box[2]-match_box[0] > 0.6 * args.width and (bb[2]-bb[0]) / (match_box[2]-match_box[0]) > 0.6:  #宽框只要宽度够也算ok
                         if not bool(gt_match["easy_mode_used"]):                   #如果easy条件第一次匹配，则recall计算时为正，否则为负，tfp+1
-                            if obj["class_name"] == class_name:
+                            if gt_match["class_name"] == class_name:
                                 gt_match["easy_mode_used"]  = True
                                 ttp[idx] = 1
                         else:
@@ -385,7 +386,7 @@ def comput_ap(class_index, class_name, n_classes, tmp_files_path, box_summary, g
                         status = "Wide Matched!"
                     elif match_box[3]-match_box[1] > 0.6 * args.height and (bb[3]-bb[1]) / (match_box[3]-match_box[1]) > 0.6:
                         if not bool(gt_match["easy_mode_used"]):                   #如果easy条件第一次匹配，则recall计算时为正，否则为负，tfp+1
-                            if obj["class_name"] == class_name:
+                            if gt_match["class_name"] == class_name:
                                 gt_match["easy_mode_used"]  = True
                                 ttp[idx] = 1
                         else:
@@ -395,7 +396,7 @@ def comput_ap(class_index, class_name, n_classes, tmp_files_path, box_summary, g
                         status = "Wide Matched!"
                     elif iw * ih / ((bb[2]-bb[0]+1)*(bb[3]-bb[1]+1)) > min_overlap or iw * ih /((match_box[2]-match_box[0]+1)*(match_box[3]-match_box[1]+1)) > min_overlap:
                         if not bool(gt_match["easy_mode_used"]):                   #如果easy条件第一次匹配，则recall计算时为正，否则为负，tfp+1
-                            if obj["class_name"] == class_name:
+                            if gt_match["class_name"] == class_name:
                                 gt_match["easy_mode_used"]  = True
                                 ttp[idx] = 1
                         else:
@@ -465,10 +466,12 @@ def comput_ap(class_index, class_name, n_classes, tmp_files_path, box_summary, g
             if ovmax > 0: # if there is intersections between the bounding-boxes
                 bbgt = [ int(x) for x in gt_match["bbox"].split() ]
                 cv2.rectangle(img,(bbgt[0],bbgt[1]),(bbgt[2],bbgt[3]),blue,2)
+                cv2.putText(img, gt_match["class_name"], (bbgt[0],bbgt[1] - 5), font, 0.6, blue, 1, cv2.LINE_AA)
                 cv2.rectangle(img_cumulative,(bbgt[0],bbgt[1]),(bbgt[2],bbgt[3]),blue,2)
-                cv2.putText(img_cumulative, class_name, (bbgt[0],bbgt[1] - 5), font, 0.6, blue, 1, cv2.LINE_AA)
+                cv2.putText(img_cumulative, gt_match["class_name"], (bbgt[0],bbgt[1] - 5), font, 0.6, blue, 1, cv2.LINE_AA)
             bb = [int(i) for i in bb]
             cv2.rectangle(img,(bb[0],bb[1]),(bb[2],bb[3]),image_color,2)
+            cv2.putText(img, class_name, (bb[0],bb[1] - 5), font, 0.6, image_color, 1, cv2.LINE_AA)
             cv2.rectangle(img_cumulative,(bb[0],bb[1]),(bb[2],bb[3]),image_color,2)
             cv2.putText(img_cumulative, class_name, (bb[0],bb[1] - 5), font, 0.6, image_color, 1, cv2.LINE_AA)
             # show image
@@ -477,6 +480,11 @@ def comput_ap(class_index, class_name, n_classes, tmp_files_path, box_summary, g
             # save image to results
             output_img_path = results_files_path + "/images/single_predictions/" + class_name + "_prediction" + str(idx) + ".jpg"
             cv2.imwrite(output_img_path, img)
+            #错误图片单独取出来
+            if class_match == False and ovmax > 0:
+                cv2.imwrite(results_files_path + "/images/class_unmatched/" + class_name + "_prediction" + str(idx) + ".jpg", img)
+            if ovmax <= 0:
+                cv2.imwrite(results_files_path + "/images/false_detected/" + class_name + "_prediction" + str(idx) + ".jpg", img)
             # save the image with all the objects drawn to it
             cv2.imwrite(img_cumulative_path, img_cumulative)
 
@@ -617,26 +625,26 @@ def score_prepare(class_name, tmp_files_path, show_animation = True):
                     gt_match = obj
                     match_box = bbgt[:]
 
-        if ovmax < 0:
+        if ovmax <= 0:
             fp[idx] = 1
         
         else:
             if not bool(gt_match["score_used"]):                                     #如果GT第一次被匹配
                 gt_match["score_used"] = True
                 gt_match["IOU"] = ovmax
-                if obj["class_name"] == class_name:
-                    obj["label_match"] = True
+                if gt_match["class_name"] == class_name:
+                    gt_match["label_match"] = True
 
             else:                                                              #如果不是第一次被匹配,Repeat+1
                 gt_match["Repeat"] += 1
-                if obj["class_name"] == class_name:                            #如果此次分类正确，之前也正确，IOU取更大者，如果之前不正确，则IOU直接取这次的值
-                    if obj["label_match"] == True:
+                if gt_match["class_name"] == class_name:                            #如果此次分类正确，之前也正确，IOU取更大者，如果之前不正确，则IOU直接取这次的值
+                    if gt_match["label_match"] == True:
                         gt_match["IOU"] = np.maximum(gt_match["IOU"],ovmax)
                     else:
                         gt_match["IOU"] = ovmax
-                        obj["label_match"] = True
+                        gt_match["label_match"] = True
                 else:                                                          #如果此次分类错误，之前也错误，IOU取更大者，如果之前正确，则IOU保持不变
-                    if obj["label_match"] != True:
+                    if gt_match["label_match"] != True:
                         gt_match["IOU"] = np.maximum(gt_match["IOU"],ovmax)
             
         with open(gt_file, 'w') as f:
@@ -656,6 +664,8 @@ def score_comput(tmp_files_path,box_summary, gt_classes, gt_counter_per_class):
         unmatched_num[class_name] = 0
         scores[class_name] = 0
 
+    small_scores, mid_scores, large_scores = [],[],[]
+    sml_num_summary = {'small_gt_num':0,'small_pred_num':0,'mid_gt_num':0,'mid_pred_num':0,'large_gt_num':0,'large_pred_num':0}
     for tmp_file in tmp_files_list:
         data = json.load(open(tmp_file))
         for obj in data:
@@ -664,16 +674,32 @@ def score_comput(tmp_files_path,box_summary, gt_classes, gt_counter_per_class):
             repeat_num = obj["Repeat"]
             label_name = obj["class_name"]
             bbgt = [ float(x) for x in obj["bbox"].split() ]
-            min_overlap = IOU_threshold(bbgt,box_summary)                          #计算IOU阈值（按照框的大小）
+            min_overlap = 0.3 if ((bbgt[2]-bbgt[0]) <= 64 and (bbgt[3]-bbgt[1]) <= 64) else 0.7  #按照64*64为小框
+            #min_overlap = IOU_threshold(bbgt,box_summary)                          #计算IOU阈值（按照框的大小）
             label_score = 1 if label_match == True else 0.8
             IOU_score = 1 if IOU >= min_overlap else IOU / min_overlap
             score = IOU_score * label_score
+            if ((bbgt[2]-bbgt[0]) <= 64 and (bbgt[3]-bbgt[1]) <= 64):
+                small_scores.append(score)
+                sml_num_summary['small_gt_num'] += 1
+                if obj['score_used'] == True:
+                    sml_num_summary['small_pred_num'] += 1
+            elif ((bbgt[2]-bbgt[0]) <= 128 and (bbgt[3]-bbgt[1]) <= 128):
+                mid_scores.append(score)
+                sml_num_summary['mid_gt_num'] += 1
+                if obj['score_used'] == True:
+                    sml_num_summary['mid_pred_num'] += 1
+            else:
+                large_scores.append(score)
+                sml_num_summary['large_gt_num'] += 1
+                if obj['score_used'] == True:
+                    sml_num_summary['large_pred_num'] += 1
             if label_name in score_per_class:
                 score_per_class[label_name] += score
             else:
                 score_per_class[label_name] = score
                 
-            if obj['easy_mode_used'] == True:
+            if obj['score_used'] == True:
                 if label_name in matched_num:
                     matched_num[label_name] += 1
                 else:
@@ -683,6 +709,17 @@ def score_comput(tmp_files_path,box_summary, gt_classes, gt_counter_per_class):
                     unmatched_num[label_name] += 1
                 else:
                     unmatched_num[label_name] = 1
+            if obj['score_used'] != True:                                     #若没有pred框匹配，保存保存该图片和框
+                file_id = tmp_file.split('_')[1][6:]
+                image_path = './images/' + file_id + '.jpg'
+                no_pred_img = cv2.imread(image_path).copy()
+                bbgt = [ int(x) for x in obj["bbox"].split() ]
+                blue = [255,30,30]
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                cv2.rectangle(no_pred_img,(bbgt[0],bbgt[1]),(bbgt[2],bbgt[3]),blue,2)
+                cv2.putText(no_pred_img, obj["class_name"], (bbgt[0],bbgt[1] - 5), font, 0.6, blue, 1, cv2.LINE_AA)
+                cv2.imwrite("./results/images/no_pred_matched/" + obj["class_name"] + "_ground_truth" + str(file_id) + ".jpg", no_pred_img)
+                
 
     for class_name in gt_classes:
         scores[class_name] = score_per_class[class_name] / gt_counter_per_class[class_name]
@@ -691,7 +728,7 @@ def score_comput(tmp_files_path,box_summary, gt_classes, gt_counter_per_class):
     matched_num['total'] = sum(matched_num.values())
     unmatched_num['total'] = sum(unmatched_num.values())
     
-    return scores, matched_num, unmatched_num
+    return scores, matched_num, unmatched_num, small_scores, mid_scores, large_scores, sml_num_summary
 
 
 def main():
@@ -734,6 +771,9 @@ def main():
     if show_animation:
       os.makedirs(results_files_path + "/images")
       os.makedirs(results_files_path + "/images/single_predictions")
+      os.makedirs(results_files_path + "/images/class_unmatched")
+      os.makedirs(results_files_path + "/images/false_detected")
+      os.makedirs(results_files_path + "/images/no_pred_matched")
      
     ground_truth_files_list = glob.glob('ground-truth/*.txt')
     ground_truth_files_list.sort()
@@ -826,7 +866,7 @@ def main():
     """ 
     for class_index, class_name in enumerate(gt_classes):
         score_prepare(class_name, tmp_files_path)
-    scores, matched_numb, unmatched_num = score_comput(tmp_files_path,box_summary,gt_classes, gt_counter_per_class)
+    scores, matched_numb, unmatched_num, small_scores, mid_scores, large_scores, sml_num_summary = score_comput(tmp_files_path,box_summary,gt_classes, gt_counter_per_class)
 
 
     """
@@ -917,6 +957,13 @@ def main():
     """
      Plot the total number of occurences of each class in the "predicted" folder
     """
+    #加入统计total
+    pred_counter_per_class['total']      = sum(pred_counter_per_class.values())
+    count_easing_true_positives['total'] = sum(count_easing_true_positives.values())
+    count_true_positives['total']        = sum(count_true_positives.values())
+    count_iou_positives['total']         = sum(count_iou_positives.values())
+    count_wide_positives['total']        = sum(count_wide_positives.values())
+    count_neibu_positives['total']       = sum(count_neibu_positives.values())
     if draw_plot:
       window_title = "Predicted Objects Info"
       # Plot title
@@ -944,7 +991,8 @@ def main():
 
     with open(results_files_path + "/results.txt", 'a') as results_file:
       results_file.write("\n# Number of predicted objects per class\n")
-      for class_name in sorted(pred_classes):
+      #for class_name in sorted(pred_classes):
+      for class_name in sorted(count_easing_true_positives.keys()):
         n_pred = pred_counter_per_class[class_name]
         text = class_name + ": " + str(n_pred)
         if args.easing_mode:
@@ -958,6 +1006,18 @@ def main():
             text +=" (tp:" + str(count_true_positives[class_name]) + ""
             text += ", fp:" + str(n_pred - count_true_positives[class_name]) + ")\n"
         results_file.write(text)
+      
+      results_file.write("\n# summary of results\n")
+      results_file.write("score: " +str(scores['total']) + " precisin: "+str(count_easing_true_positives['total']/pred_counter_per_class['total']) +" recall: "+str(matched_numb['total']/gt_counter_per_class['total']))
+      print("score: %.2f  precisin: %.2f  recall:%.2f \n"%(scores['total'],count_easing_true_positives['total']/pred_counter_per_class['total'],
+                        matched_numb['total']/gt_counter_per_class['total']))
+      results_file.write("\n\n# summary of large/mid/small results\n")
+      results_file.write(("large total number %d matched %d recall: %.2f  score: %.2f \n")%(sml_num_summary['large_gt_num'], sml_num_summary['large_pred_num'], sml_num_summary['large_pred_num']/sml_num_summary['large_gt_num'],sum(large_scores)/len(large_scores)))
+      results_file.write(("mid   total number %d matched %d recall: %.2f  score: %.2f \n")%(sml_num_summary['mid_gt_num'], sml_num_summary['mid_pred_num'], sml_num_summary['mid_pred_num']/sml_num_summary['mid_gt_num'],sum(mid_scores)/len(mid_scores)))
+      results_file.write(("small total number %d matched %d recall: %.2f  score: %.2f \n")%(sml_num_summary['small_gt_num'], sml_num_summary['small_pred_num'], sml_num_summary['small_pred_num']/sml_num_summary['small_gt_num'],sum(small_scores)/len(small_scores)))
+      print(("large total number %d matched %d recall: %.2f  score: %.2f \n")%(sml_num_summary['large_gt_num'], sml_num_summary['large_pred_num'], sml_num_summary['large_pred_num']/sml_num_summary['large_gt_num'],sum(large_scores)/len(large_scores)))
+      print(("mid   total number %d matched %d recall: %.2f  score: %.2f \n")%(sml_num_summary['mid_gt_num'], sml_num_summary['mid_pred_num'], sml_num_summary['mid_pred_num']/sml_num_summary['mid_gt_num'],sum(mid_scores)/len(mid_scores)))
+      print(("small total number %d matched %d recall: %.2f  score: %.2f \n")%(sml_num_summary['small_gt_num'], sml_num_summary['small_pred_num'], sml_num_summary['small_pred_num']/sml_num_summary['small_gt_num'],sum(small_scores)/len(small_scores)))
     """
      Draw mAP plot (Show AP's of all classes in decreasing order)
     """
